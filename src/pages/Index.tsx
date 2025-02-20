@@ -4,11 +4,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { extractPlaylistId, fetchPlaylistTracks } from "@/utils/spotify";
 
 const Index = () => {
   const { toast } = useToast();
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [tracks, setTracks] = useState<any[]>([]);
 
   const handleSpotifyAuth = () => {
     toast({
@@ -24,18 +26,38 @@ const Index = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate processing
-    setTimeout(() => {
+    const playlistId = extractPlaylistId(playlistUrl);
+    
+    if (!playlistId) {
       toast({
-        title: "Feature in Development",
-        description: "Playlist conversion will be available in the next update.",
+        title: "Invalid URL",
+        description: "Please enter a valid Spotify playlist URL",
+        variant: "destructive",
       });
       setIsLoading(false);
-    }, 1500);
+      return;
+    }
+
+    try {
+      const data = await fetchPlaylistTracks(playlistId);
+      setTracks(data.items || []);
+      toast({
+        title: "Playlist Fetched",
+        description: `Found ${data.items?.length || 0} tracks`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch playlist. Make sure the playlist is public.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -87,6 +109,19 @@ const Index = () => {
                 {isLoading ? "Converting..." : "Convert Playlist"}
               </Button>
             </form>
+
+            {tracks.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <h3 className="font-semibold text-lg">Tracks Found:</h3>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {tracks.map((track: any, index: number) => (
+                    <div key={index} className="text-sm p-2 bg-background/50 rounded">
+                      {track.track?.name} - {track.track?.artists?.[0]?.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
