@@ -4,27 +4,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { extractPlaylistId, fetchPlaylistTracks } from "@/utils/spotify";
 
 const Index = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [tracks, setTracks] = useState<any[]>([]);
-
-  const handleSpotifyAuth = () => {
-    toast({
-      title: "Coming Soon",
-      description: "Spotify authentication will be implemented in the next update.",
-    });
-  };
-
-  const handleYouTubeAuth = () => {
-    toast({
-      title: "Coming Soon",
-      description: "YouTube Music authentication will be implemented in the next update.",
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,18 +31,13 @@ const Index = () => {
 
     try {
       const data = await fetchPlaylistTracks(playlistId);
-      setTracks(data.items || []);
-      toast({
-        title: "Playlist Fetched",
-        description: `Found ${data.items?.length || 0} tracks`,
-      });
+      navigate("/playlist-tracks", { state: { tracks: data.items || [] } });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch playlist. Make sure the playlist is public.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -77,52 +59,22 @@ const Index = () => {
         </div>
 
         <Card className="max-w-md mx-auto backdrop-blur-sm bg-card/80 p-6 rounded-xl shadow-lg border border-border/50">
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <Button
-                onClick={handleSpotifyAuth}
-                className="w-full bg-spotify hover:bg-spotify/90 text-white transition-all duration-200"
-              >
-                Connect Spotify
-              </Button>
-              <Button
-                onClick={handleYouTubeAuth}
-                className="w-full bg-youtube hover:bg-youtube/90 text-white transition-all duration-200"
-              >
-                Connect YouTube Music
-              </Button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                type="url"
-                placeholder="Paste your Spotify playlist URL"
-                value={playlistUrl}
-                onChange={(e) => setPlaylistUrl(e.target.value)}
-                className="w-full bg-background/50"
-              />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={!playlistUrl || isLoading}
-              >
-                {isLoading ? "Converting..." : "Convert Playlist"}
-              </Button>
-            </form>
-
-            {tracks.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <h3 className="font-semibold text-lg">Tracks Found:</h3>
-                <div className="max-h-60 overflow-y-auto space-y-2">
-                  {tracks.map((track: any, index: number) => (
-                    <div key={index} className="text-sm p-2 bg-background/50 rounded">
-                      {track.track?.name} - {track.track?.artists?.[0]?.name}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="url"
+              placeholder="Paste your Spotify playlist URL"
+              value={playlistUrl}
+              onChange={(e) => setPlaylistUrl(e.target.value)}
+              className="w-full bg-background/50"
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!playlistUrl || isLoading}
+            >
+              {isLoading ? "Loading Playlist..." : "Load Playlist"}
+            </Button>
+          </form>
         </Card>
 
         <div className="mt-12 text-center text-sm text-muted-foreground">
