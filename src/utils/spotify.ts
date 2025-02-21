@@ -1,4 +1,6 @@
 
+import { supabase } from "@/integrations/supabase/client";
+
 export const extractPlaylistId = (url: string): string | null => {
   try {
     const matches = url.match(/playlist\/([a-zA-Z0-9]+)/);
@@ -10,12 +12,22 @@ export const extractPlaylistId = (url: string): string | null => {
 
 export const fetchPlaylistTracks = async (playlistId: string) => {
   try {
-    // First, get an access token
+    // First, get the client secret from Supabase
+    const { data: secretData, error: secretError } = await supabase
+      .functions.invoke('get-secret', {
+        body: { secretName: 'SPOTIFY_CLIENT_SECRET' }
+      });
+
+    if (secretError || !secretData?.secret) {
+      throw new Error('Failed to get client secret');
+    }
+
+    // Get an access token using the client credentials
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa('36ef1be038e24481a2c053bc16a3b86d:12968ee60d974b24938800f7d64c6a9b'),
+        'Authorization': 'Basic ' + btoa(`36ef1be038e24481a2c053bc16a3b86d:${secretData.secret}`),
       },
       body: 'grant_type=client_credentials'
     });
