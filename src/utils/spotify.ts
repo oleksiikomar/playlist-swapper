@@ -15,8 +15,7 @@ export const fetchPlaylistTracks = async (playlistId: string) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        // This is a public client ID that's safe to expose
-        'Authorization': 'Basic ' + btoa('31d6b16327fb43a59ae8c62fce7f1cd4:your-client-secret'),
+        'Authorization': 'Basic ' + btoa('36ef1be038e24481a2c053bc16a3b86d:12968ee60d974b24938800f7d64c6a9b'),
       },
       body: 'grant_type=client_credentials'
     });
