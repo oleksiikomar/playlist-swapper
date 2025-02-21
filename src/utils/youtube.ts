@@ -14,10 +14,9 @@ export const createYouTubePlaylist = async (tracks: any[]) => {
     }
 
     // First create the playlist
-    const playlistResponse = await fetch('https://www.googleapis.com/youtube/v3/playlists?part=snippet', {
+    const playlistResponse = await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet&key=${secretData.secret}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${secretData.secret}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -50,10 +49,9 @@ export const createYouTubePlaylist = async (tracks: any[]) => {
       if (searchResult.items && searchResult.items.length > 0) {
         const videoId = searchResult.items[0].id.videoId;
         
-        await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet`, {
+        await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&key=${secretData.secret}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${secretData.secret}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
