@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createYouTubePlaylist } from "@/utils/youtube";
@@ -14,7 +14,17 @@ const PlaylistTracks = () => {
 
   const handleCreateYouTubePlaylist = async () => {
     try {
-      const clientId = 'YOUR_GOOGLE_CLIENT_ID'; // We'll need to get this from Supabase secrets
+      // Get the client ID from Supabase secrets
+      const { data: secretData, error: secretError } = await supabase
+        .functions.invoke('get-secret', {
+          body: { secretName: 'GOOGLE_CLIENT_ID' }
+        });
+
+      if (secretError || !secretData?.secret) {
+        throw new Error('Failed to get Google Client ID');
+      }
+
+      const clientId = secretData.secret;
       const redirectUri = window.location.origin + '/playlist-tracks';
       const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
       
