@@ -1,8 +1,10 @@
 
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createYouTubePlaylist } from "@/utils/youtube";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const PlaylistTracks = () => {
   const location = useLocation();
@@ -35,7 +37,7 @@ const PlaylistTracks = () => {
   };
 
   // Handle OAuth callback
-  React.useEffect(() => {
+  useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const state = urlParams.get('state');
@@ -83,7 +85,7 @@ const PlaylistTracks = () => {
 
       exchangeCode();
     }
-  }, []);
+  }, [tracks, toast]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
