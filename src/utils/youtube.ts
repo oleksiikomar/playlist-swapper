@@ -28,7 +28,9 @@ export const createYouTubePlaylist = async (tracks: any[]) => {
     });
 
     if (!playlistResponse.ok) {
-      throw new Error('Failed to create YouTube playlist');
+      const errorData = await playlistResponse.json();
+      console.error('YouTube API Error:', errorData);
+      throw new Error(`Failed to create YouTube playlist: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const playlist = await playlistResponse.json();

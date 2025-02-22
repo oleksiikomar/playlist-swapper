@@ -12,30 +12,78 @@ const PlaylistTracks = () => {
 
   const handleCreateYouTubePlaylist = async () => {
     try {
-      toast({
-        title: "Creating YouTube playlist",
-        description: "Please wait while we create your playlist...",
-      });
-
-      const playlistId = await createYouTubePlaylist(tracks);
+      const clientId = 'YOUR_GOOGLE_CLIENT_ID'; // We'll need to get this from Supabase secrets
+      const redirectUri = window.location.origin + '/playlist-tracks';
+      const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
       
-      toast({
-        title: "Success!",
-        description: "YouTube playlist has been created.",
-        variant: "default",
-      });
-
-      // Open the created playlist in a new tab
-      window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
+      // Generate random state
+      const state = Math.random().toString(36).substring(7);
+      sessionStorage.setItem('youtube_oauth_state', state);
+      
+      // Redirect to Google OAuth consent screen
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
+      
+      window.location.href = authUrl;
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Failed to create YouTube playlist. Please try again.",
+        description: "Failed to start YouTube authorization. Please try again.",
         variant: "destructive",
       });
     }
   };
+
+  // Handle OAuth callback
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const storedState = sessionStorage.getItem('youtube_oauth_state');
+
+    if (code && state === storedState) {
+      // Clear state
+      sessionStorage.removeItem('youtube_oauth_state');
+
+      // Exchange code for access token
+      const exchangeCode = async () => {
+        try {
+          toast({
+            title: "Creating YouTube playlist",
+            description: "Please wait while we create your playlist...",
+          });
+
+          const response = await supabase.functions.invoke('youtube-auth', {
+            body: { code }
+          });
+
+          if (response.error) {
+            throw new Error(response.error);
+          }
+
+          const playlistId = await createYouTubePlaylist(tracks);
+          
+          toast({
+            title: "Success!",
+            description: "YouTube playlist has been created.",
+            variant: "default",
+          });
+
+          // Open the created playlist in a new tab
+          window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
+        } catch (error) {
+          console.error('Error:', error);
+          toast({
+            title: "Error",
+            description: "Failed to create YouTube playlist. Please try again.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      exchangeCode();
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
