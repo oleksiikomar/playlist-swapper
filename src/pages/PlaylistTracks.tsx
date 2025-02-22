@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -10,7 +9,6 @@ const PlaylistTracks = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  // Store tracks in state to preserve them across re-renders
   const [tracks, setTracks] = useState(location.state?.tracks || []);
 
   const handleCreateYouTubePlaylist = async () => {
@@ -26,12 +24,8 @@ const PlaylistTracks = () => {
       }
 
       const clientId = secretData.secret;
-      // Use the exact redirect URI that was configured in Google Console and Supabase
-      const { data: redirectData } = await supabase.functions.invoke('get-secret', {
-        body: { secretName: 'GOOGLE_REDIRECT_URI' }
-      });
-      
-      const redirectUri = redirectData?.secret || window.location.origin + '/playlist-tracks';
+      // Use the exact redirect URI that was configured in Google Console
+      const redirectUri = 'https://lovable.dev/projects/ae3a22aa-f48f-404d-93a6-434bd2093d40/playlist-tracks';
       const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
       
       // Generate random state
@@ -54,7 +48,6 @@ const PlaylistTracks = () => {
     }
   };
 
-  // On component mount, try to restore tracks from sessionStorage if they exist
   useEffect(() => {
     const storedTracks = sessionStorage.getItem('playlist_tracks');
     if (storedTracks && (!tracks || tracks.length === 0)) {
@@ -62,7 +55,6 @@ const PlaylistTracks = () => {
     }
   }, []);
 
-  // Handle OAuth callback
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -70,10 +62,8 @@ const PlaylistTracks = () => {
     const storedState = sessionStorage.getItem('youtube_oauth_state');
 
     if (code && state === storedState) {
-      // Clear state
       sessionStorage.removeItem('youtube_oauth_state');
 
-      // Exchange code for access token
       const exchangeCode = async () => {
         try {
           toast({
@@ -91,7 +81,6 @@ const PlaylistTracks = () => {
 
           const playlistId = await createYouTubePlaylist(tracks);
           
-          // Clear stored tracks after successful creation
           sessionStorage.removeItem('playlist_tracks');
           
           toast({
@@ -100,7 +89,6 @@ const PlaylistTracks = () => {
             variant: "default",
           });
 
-          // Open the created playlist in a new tab
           window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
         } catch (error) {
           console.error('Error:', error);
@@ -116,7 +104,6 @@ const PlaylistTracks = () => {
     }
   }, [tracks, toast]);
 
-  // If no tracks are available, redirect back to home
   useEffect(() => {
     if (!tracks || tracks.length === 0) {
       const storedTracks = sessionStorage.getItem('playlist_tracks');
