@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createYouTubePlaylist } from "@/utils/youtube";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const PlaylistTracks = () => {
   const location = useLocation();
