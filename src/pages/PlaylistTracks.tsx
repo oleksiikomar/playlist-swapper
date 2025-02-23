@@ -91,9 +91,9 @@ const PlaylistTracks = () => {
       
       // For local development
       let redirectUri = 'http://localhost:5173/playlist-tracks';
-      // For production
+      // For production preview
       if (window.location.hostname !== 'localhost') {
-        redirectUri = 'https://lovable.dev/projects/ae3a22aa-f48f-404d-93a6-434bd2093d40/playlist-tracks';
+        redirectUri = 'https://preview--playlist-swapper.lovable.app/playlist-tracks';
       }
 
       const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
