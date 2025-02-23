@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -9,7 +10,24 @@ const PlaylistTracks = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [tracks, setTracks] = useState(location.state?.tracks || []);
+  const [tracks, setTracks] = useState<any[]>([]);
+
+  // Initialize tracks from location state or sessionStorage
+  useEffect(() => {
+    if (location.state?.tracks) {
+      setTracks(location.state.tracks);
+      // Store tracks in sessionStorage for OAuth redirect
+      sessionStorage.setItem('playlist_tracks', JSON.stringify(location.state.tracks));
+    } else {
+      // Try to restore tracks from sessionStorage
+      const storedTracks = sessionStorage.getItem('playlist_tracks');
+      if (storedTracks) {
+        setTracks(JSON.parse(storedTracks));
+      } else {
+        navigate('/');
+      }
+    }
+  }, [location.state, navigate]);
 
   const handleCreateYouTubePlaylist = async () => {
     try {
@@ -24,15 +42,13 @@ const PlaylistTracks = () => {
       }
 
       const clientId = secretData.secret;
-      // Use the exact redirect URI that was configured in Google Console
-      const redirectUri = 'https://lovable.dev/projects/ae3a22aa-f48f-404d-93a6-434bd2093d40/playlist-tracks';
+      // Use the exact redirect URI that matches Google Console
+      const redirectUri = window.location.href.split('?')[0]; // Remove any query parameters
       const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
       
       // Generate random state
       const state = Math.random().toString(36).substring(7);
       sessionStorage.setItem('youtube_oauth_state', state);
-      // Store tracks in sessionStorage to preserve them during OAuth redirect
-      sessionStorage.setItem('playlist_tracks', JSON.stringify(tracks));
       
       // Redirect to Google OAuth consent screen
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
@@ -47,13 +63,6 @@ const PlaylistTracks = () => {
       });
     }
   };
-
-  useEffect(() => {
-    const storedTracks = sessionStorage.getItem('playlist_tracks');
-    if (storedTracks && (!tracks || tracks.length === 0)) {
-      setTracks(JSON.parse(storedTracks));
-    }
-  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -104,14 +113,9 @@ const PlaylistTracks = () => {
     }
   }, [tracks, toast]);
 
-  useEffect(() => {
-    if (!tracks || tracks.length === 0) {
-      const storedTracks = sessionStorage.getItem('playlist_tracks');
-      if (!storedTracks) {
-        navigate('/');
-      }
-    }
-  }, [tracks, navigate]);
+  if (!tracks || tracks.length === 0) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
