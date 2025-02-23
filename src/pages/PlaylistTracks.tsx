@@ -16,10 +16,8 @@ const PlaylistTracks = () => {
   useEffect(() => {
     if (location.state?.tracks) {
       setTracks(location.state.tracks);
-      // Store tracks in sessionStorage for OAuth redirect
       sessionStorage.setItem('playlist_tracks', JSON.stringify(location.state.tracks));
     } else {
-      // Try to restore tracks from sessionStorage
       const storedTracks = sessionStorage.getItem('playlist_tracks');
       if (storedTracks) {
         setTracks(JSON.parse(storedTracks));
@@ -31,7 +29,6 @@ const PlaylistTracks = () => {
 
   const handleCreateYouTubePlaylist = async () => {
     try {
-      // Get the client ID from Supabase secrets
       const { data: secretData, error: secretError } = await supabase
         .functions.invoke('get-secret', {
           body: { secretName: 'GOOGLE_CLIENT_ID' }
@@ -42,15 +39,18 @@ const PlaylistTracks = () => {
       }
 
       const clientId = secretData.secret;
-      // Use the exact redirect URI that matches Google Console
-      const redirectUri = window.location.href.split('?')[0]; // Remove any query parameters
-      const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
       
-      // Generate random state
+      // For local development
+      let redirectUri = 'http://localhost:5173/playlist-tracks';
+      // For production
+      if (window.location.hostname !== 'localhost') {
+        redirectUri = 'https://lovable.dev/projects/ae3a22aa-f48f-404d-93a6-434bd2093d40/playlist-tracks';
+      }
+
+      const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
       const state = Math.random().toString(36).substring(7);
       sessionStorage.setItem('youtube_oauth_state', state);
       
-      // Redirect to Google OAuth consent screen
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
       
       window.location.href = authUrl;
