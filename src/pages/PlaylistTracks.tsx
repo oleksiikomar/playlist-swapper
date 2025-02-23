@@ -11,6 +11,7 @@ const PlaylistTracks = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [tracks, setTracks] = useState<any[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Initialize tracks from location state or sessionStorage
   useEffect(() => {
@@ -26,6 +27,54 @@ const PlaylistTracks = () => {
       }
     }
   }, [location.state, navigate]);
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const storedState = sessionStorage.getItem('youtube_oauth_state');
+
+    if (code && state === storedState && !isCreating) {
+      const createPlaylist = async () => {
+        setIsCreating(true);
+        try {
+          toast({
+            title: "Creating playlist",
+            description: "Please wait while we create your YouTube playlist...",
+          });
+
+          const playlistId = await createYouTubePlaylist(tracks);
+          
+          toast({
+            title: "Success!",
+            description: "YouTube playlist has been created successfully.",
+          });
+
+          // Clean up
+          sessionStorage.removeItem('youtube_oauth_state');
+          sessionStorage.removeItem('playlist_tracks');
+          
+          // Open the created playlist in a new tab
+          window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
+          
+          // Navigate back to home
+          navigate('/', { replace: true });
+        } catch (error) {
+          console.error('Error creating playlist:', error);
+          toast({
+            title: "Error",
+            description: "Failed to create YouTube playlist. Please try again.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsCreating(false);
+        }
+      };
+
+      createPlaylist();
+    }
+  }, [location.search, tracks, navigate, toast, isCreating]);
 
   const handleCreateYouTubePlaylist = async () => {
     try {
@@ -65,55 +114,6 @@ const PlaylistTracks = () => {
     }
   };
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    const storedState = sessionStorage.getItem('youtube_oauth_state');
-
-    if (code && state === storedState) {
-      sessionStorage.removeItem('youtube_oauth_state');
-
-      const exchangeCode = async () => {
-        try {
-          toast({
-            title: "Creating YouTube playlist",
-            description: "Please wait while we create your playlist...",
-          });
-
-          const response = await supabase.functions.invoke('youtube-auth', {
-            body: { code }
-          });
-
-          if (response.error) {
-            throw new Error(response.error);
-          }
-
-          const playlistId = await createYouTubePlaylist(tracks);
-          
-          sessionStorage.removeItem('playlist_tracks');
-          
-          toast({
-            title: "Success!",
-            description: "YouTube playlist has been created.",
-            variant: "default",
-          });
-
-          window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
-        } catch (error) {
-          console.error('Error:', error);
-          toast({
-            title: "Error",
-            description: "Failed to create YouTube playlist. Please try again.",
-            variant: "destructive",
-          });
-        }
-      };
-
-      exchangeCode();
-    }
-  }, [tracks, toast]);
-
   if (!tracks || tracks.length === 0) {
     return null;
   }
@@ -133,8 +133,9 @@ const PlaylistTracks = () => {
             <Button
               onClick={handleCreateYouTubePlaylist}
               className="bg-youtube hover:bg-youtube/90 text-white"
+              disabled={isCreating}
             >
-              Create YouTube Playlist
+              {isCreating ? "Creating Playlist..." : "Create YouTube Playlist"}
             </Button>
           </div>
 
