@@ -53,7 +53,8 @@ const PlaylistTracks = () => {
       
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
       
-      window.location.href = authUrl;
+      // Open in a new tab instead of current window
+      window.open(authUrl, '_blank');
     } catch (error) {
       console.error('Error:', error);
       toast({
