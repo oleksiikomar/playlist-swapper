@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createYouTubePlaylist } from "@/utils/youtube";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 const PlaylistTracks = () => {
   const location = useLocation();
@@ -12,105 +11,60 @@ const PlaylistTracks = () => {
   const { toast } = useToast();
   const [tracks, setTracks] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [playlistTitle, setPlaylistTitle] = useState<string>('');
 
-  // Initialize tracks from location state or sessionStorage
+  // Initialize tracks and playlist title from location state or sessionStorage
   useEffect(() => {
     if (location.state?.tracks) {
       setTracks(location.state.tracks);
+      setPlaylistTitle(location.state.playlistTitle || 'Spotify Playlist');
       sessionStorage.setItem('playlist_tracks', JSON.stringify(location.state.tracks));
+      sessionStorage.setItem('playlist_title', location.state.playlistTitle || 'Spotify Playlist');
     } else {
       const storedTracks = sessionStorage.getItem('playlist_tracks');
+      const storedTitle = sessionStorage.getItem('playlist_title');
       if (storedTracks) {
         setTracks(JSON.parse(storedTracks));
+        setPlaylistTitle(storedTitle || 'Spotify Playlist');
       } else {
         navigate('/');
       }
     }
   }, [location.state, navigate]);
 
-  // Handle OAuth callback
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    const storedState = sessionStorage.getItem('youtube_oauth_state');
-
-    if (code && state === storedState && !isCreating) {
-      const createPlaylist = async () => {
-        setIsCreating(true);
-        try {
-          toast({
-            title: "Creating playlist",
-            description: "Please wait while we create your YouTube playlist...",
-          });
-
-          const playlistId = await createYouTubePlaylist(tracks);
-          
-          toast({
-            title: "Success!",
-            description: "YouTube playlist has been created successfully.",
-          });
-
-          // Clean up
-          sessionStorage.removeItem('youtube_oauth_state');
-          sessionStorage.removeItem('playlist_tracks');
-          
-          // Open the created playlist in a new tab
-          window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
-          
-          // Navigate back to home
-          navigate('/', { replace: true });
-        } catch (error) {
-          console.error('Error creating playlist:', error);
-          toast({
-            title: "Error",
-            description: "Failed to create YouTube playlist. Please try again.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsCreating(false);
-        }
-      };
-
-      createPlaylist();
-    }
-  }, [location.search, tracks, navigate, toast, isCreating]);
-
   const handleCreateYouTubePlaylist = async () => {
+    setIsCreating(true);
     try {
-      const { data: secretData, error: secretError } = await supabase
-        .functions.invoke('get-secret', {
-          body: { secretName: 'GOOGLE_CLIENT_ID' }
-        });
+      toast({
+        title: "Creating playlist",
+        description: "Please wait while we create your YouTube playlist...",
+      });
 
-      if (secretError || !secretData?.secret) {
-        throw new Error('Failed to get Google Client ID');
-      }
+      const playlistId = await createYouTubePlaylist(tracks, playlistTitle);
+      
+      toast({
+        title: "Success!",
+        description: "YouTube playlist has been created successfully.",
+      });
 
-      const clientId = secretData.secret;
+      // Clean up
+      sessionStorage.removeItem('playlist_tracks');
+      sessionStorage.removeItem('playlist_title');
       
-      // For local development
-      let redirectUri = 'http://localhost:5173/playlist-tracks';
-      // For production preview
-      if (window.location.hostname !== 'localhost') {
-        redirectUri = 'https://preview--playlist-swapper.lovable.app/playlist-tracks';
-      }
-
-      const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
-      const state = Math.random().toString(36).substring(7);
-      sessionStorage.setItem('youtube_oauth_state', state);
+      // Open the created playlist in a new tab
+      window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
       
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
-      
-      // Open in a new tab instead of current window
-      window.open(authUrl, '_blank');
+      // Navigate back to home
+      navigate('/', { replace: true });
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error creating playlist:', error);
       toast({
         title: "Error",
-        description: "Failed to start YouTube authorization. Please try again.",
+        description: "Failed to create YouTube playlist. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -140,7 +94,7 @@ const PlaylistTracks = () => {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">Playlist Tracks</h2>
+            <h2 className="text-2xl font-bold">{playlistTitle}</h2>
             <div className="space-y-2">
               {tracks.map((track: any, index: number) => (
                 <div
