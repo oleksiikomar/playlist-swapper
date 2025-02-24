@@ -15,11 +15,10 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
 
     const apiKey = apiKeyData.secret;
 
-    // Create the playlist with Spotify title
-    const playlistResponse = await fetch('https://www.googleapis.com/youtube/v3/playlists?part=snippet', {
+    // Create the playlist using API key as a query parameter
+    const playlistResponse = await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet&key=${apiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -41,6 +40,7 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
     // Add tracks to the playlist
     for (const track of tracks) {
       const searchQuery = `${track.track.name} ${track.track.artists[0].name}`;
+      // Use API key as query parameter for search
       const searchResponse = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&key=${apiKey}`
       );
@@ -54,10 +54,10 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
       if (searchResult.items && searchResult.items.length > 0) {
         const videoId = searchResult.items[0].id.videoId;
         
-        await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
+        // Use API key as query parameter for adding items to playlist
+        await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&key=${apiKey}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
