@@ -13,6 +13,18 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
 
     const accessToken = authData.accessToken;
 
+    // Get YouTube API key for search operations
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .functions.invoke('get-secret', {
+        body: { secretName: 'YOUTUBE_API_KEY' }
+      });
+
+    if (apiKeyError || !apiKeyData?.secret) {
+      throw new Error('Failed to get YouTube API key');
+    }
+
+    const apiKey = apiKeyData.secret;
+
     // Create the playlist using OAuth token
     const playlistResponse = await fetch('https://www.googleapis.com/youtube/v3/playlists?part=snippet', {
       method: 'POST',
@@ -39,8 +51,9 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
     // Add tracks to the playlist
     for (const track of tracks) {
       const searchQuery = `${track.track.name} ${track.track.artists[0].name}`;
+      // Use API key for search operations
       const searchResponse = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&key=${accessToken}`
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&key=${apiKey}`
       );
 
       if (!searchResponse.ok) {
@@ -52,6 +65,7 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
       if (searchResult.items && searchResult.items.length > 0) {
         const videoId = searchResult.items[0].id.videoId;
         
+        // Use OAuth token for playlist operations
         await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
           method: 'POST',
           headers: {
