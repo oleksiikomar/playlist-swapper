@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createYouTubePlaylist } from "@/utils/youtube";
+import { initiateYouTubeAuth, handleYouTubeCallback } from "@/utils/youtube-auth";
 import { useToast } from "@/hooks/use-toast";
 
 const PlaylistTracks = () => {
@@ -32,6 +33,62 @@ const PlaylistTracks = () => {
     }
   }, [location.state, navigate]);
 
+  // Handle OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    
+    if (code && state) {
+      const storedState = sessionStorage.getItem('youtube_oauth_state');
+      if (state !== storedState) {
+        toast({
+          title: "Error",
+          description: "Invalid OAuth state",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      handleYouTubeCallback(code)
+        .then(async (refreshToken) => {
+          // Save refresh token to Supabase secrets
+          const { error } = await supabase.functions.invoke('set-secret', {
+            body: { 
+              secretName: 'GOOGLE_REFRESH_TOKEN',
+              secretValue: refreshToken
+            }
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          toast({
+            title: "Success",
+            description: "YouTube authentication completed!",
+          });
+
+          // Clean up
+          sessionStorage.removeItem('youtube_oauth_state');
+          
+          // Remove code from URL
+          window.history.replaceState({}, document.title, "/playlist-tracks");
+          
+          // Try creating playlist now that we're authenticated
+          await handleCreateYouTubePlaylist();
+        })
+        .catch((error) => {
+          console.error('Error handling callback:', error);
+          toast({
+            title: "Error",
+            description: "Failed to complete YouTube authentication",
+            variant: "destructive",
+          });
+        });
+    }
+  }, [location.search]);
+
   const handleCreateYouTubePlaylist = async () => {
     setIsCreating(true);
     try {
@@ -56,8 +113,15 @@ const PlaylistTracks = () => {
       
       // Navigate back to home
       navigate('/', { replace: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating playlist:', error);
+      
+      if (error.message.includes('Failed to get YouTube authentication token')) {
+        // Start OAuth flow
+        await initiateYouTubeAuth();
+        return;
+      }
+      
       toast({
         title: "Error",
         description: "Failed to create YouTube playlist. Please try again.",
