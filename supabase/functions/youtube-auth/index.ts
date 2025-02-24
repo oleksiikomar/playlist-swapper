@@ -12,37 +12,31 @@ serve(async (req) => {
   }
 
   try {
-    const { code } = await req.json();
-    
-    if (!code) {
-      throw new Error('Authorization code is required');
-    }
-
+    // Get credentials from secrets
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-    const redirectUri = Deno.env.get('GOOGLE_REDIRECT_URI');
+    const refreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    if (!clientId || !clientSecret || !refreshToken) {
       throw new Error('Missing OAuth configuration');
     }
 
-    // Exchange code for tokens
+    // Get new access token using refresh token
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
       }),
     });
 
     if (!tokenResponse.ok) {
-      throw new Error('Failed to exchange authorization code');
+      throw new Error('Failed to refresh access token');
     }
 
     const tokens = await tokenResponse.json();
