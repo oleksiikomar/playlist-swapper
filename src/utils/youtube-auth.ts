@@ -28,13 +28,8 @@ export const initiateYouTubeAuth = async () => {
     const state = Math.random().toString(36).substring(7);
     sessionStorage.setItem('youtube_oauth_state', state);
 
-    // Store current playlist details
-    const currentTracks = sessionStorage.getItem('playlist_tracks');
-    const currentTitle = sessionStorage.getItem('playlist_title');
-    if (currentTracks && currentTitle) {
-      sessionStorage.setItem('pending_playlist_tracks', currentTracks);
-      sessionStorage.setItem('pending_playlist_title', currentTitle);
-    }
+    // Store current URL to return to after auth
+    sessionStorage.setItem('return_to', window.location.pathname);
 
     // Construct OAuth URL
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -54,17 +49,22 @@ export const initiateYouTubeAuth = async () => {
   }
 };
 
-export const handleYouTubeCallback = async (code: string): Promise<string> => {
+export const handleYouTubeCallback = async (code: string): Promise<void> => {
   try {
     const { data, error } = await supabase.functions.invoke('youtube-auth-callback', {
       body: { code }
     });
 
-    if (error || !data?.refreshToken) {
+    if (error) {
       throw new Error('Failed to complete authentication');
     }
 
-    return data.refreshToken;
+    // Store the access token temporarily
+    sessionStorage.setItem('youtube_access_token', data.accessToken);
+    
+    // Return to the original page
+    const returnTo = sessionStorage.getItem('return_to') || '/';
+    window.location.href = returnTo;
   } catch (error) {
     console.error('Error handling callback:', error);
     throw error;

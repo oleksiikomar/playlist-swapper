@@ -1,19 +1,17 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle: string, refreshToken?: string) => {
+export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle: string) => {
   try {
-    // Get access token from our edge function
-    const { data: authData, error: authError } = await supabase
-      .functions.invoke('youtube-auth', {
-        body: refreshToken ? { refreshToken } : undefined
-      });
+    // Try to get stored access token first
+    let accessToken = sessionStorage.getItem('youtube_access_token');
 
-    if (authError || !authData?.accessToken) {
-      throw new Error('Failed to get YouTube authentication token');
+    // If no token, get a new one
+    if (!accessToken) {
+      // Redirect to auth
+      await initiateYouTubeAuth();
+      return;
     }
-
-    const accessToken = authData.accessToken;
 
     // Get YouTube API key for search operations
     const { data: apiKeyData, error: apiKeyError } = await supabase
@@ -41,6 +39,13 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
         }
       })
     });
+
+    // If token is invalid, clear it and redirect to auth
+    if (playlistResponse.status === 401) {
+      sessionStorage.removeItem('youtube_access_token');
+      await initiateYouTubeAuth();
+      return;
+    }
 
     if (!playlistResponse.ok) {
       const errorData = await playlistResponse.json();
@@ -87,9 +92,65 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
       }
     }
 
+    // Clear the access token after successful creation
+    sessionStorage.removeItem('youtube_access_token');
+    
     return playlist.id;
   } catch (error) {
     console.error('Error creating playlist:', error);
+    throw error;
+  }
+};
+
+export const initiateYouTubeAuth = async () => {
+  // Store current tracks and title before redirecting
+  const currentTracks = sessionStorage.getItem('playlist_tracks');
+  const currentTitle = sessionStorage.getItem('playlist_title');
+  if (currentTracks && currentTitle) {
+    sessionStorage.setItem('pending_playlist_tracks', currentTracks);
+    sessionStorage.setItem('pending_playlist_title', currentTitle);
+  }
+  
+  try {
+    // Get client ID from edge function
+    const { data: clientData, error: clientError } = await supabase
+      .functions.invoke('get-secret', {
+        body: { secretName: 'GOOGLE_CLIENT_ID' }
+      });
+
+    if (clientError || !clientData?.secret) {
+      throw new Error('Failed to get client ID');
+    }
+
+    const clientId = clientData.secret;
+    
+    // Define OAuth parameters
+    const scopes = [
+      'https://www.googleapis.com/auth/youtube',
+      'https://www.googleapis.com/auth/youtube.force-ssl'
+    ].join(' ');
+
+    // Use current URL as redirect
+    const redirectUri = `${window.location.origin}/playlist-tracks`;
+    
+    // Generate random state for security
+    const state = Math.random().toString(36).substring(7);
+    sessionStorage.setItem('youtube_oauth_state', state);
+
+    // Construct OAuth URL
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${clientId}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&access_type=offline` +
+      `&state=${state}` +
+      `&prompt=consent`;
+
+    // Redirect to Google OAuth
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Error initiating auth:', error);
     throw error;
   }
 };
