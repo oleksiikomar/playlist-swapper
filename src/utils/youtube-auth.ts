@@ -56,6 +56,22 @@ export const handleYouTubeCallback = async (code: string) => {
       throw new Error('Failed to complete authentication');
     }
 
+    // Store refresh token temporarily in session storage as backup
+    sessionStorage.setItem('youtube_refresh_token', data.refreshToken);
+
+    try {
+      // Try to store in Supabase secrets
+      await supabase.functions.invoke('set-secret', {
+        body: { 
+          secretName: 'GOOGLE_REFRESH_TOKEN',
+          secretValue: data.refreshToken
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to store refresh token in secrets, using session storage instead');
+      // Continue with session storage token
+    }
+
     return data.refreshToken;
   } catch (error) {
     console.error('Error handling callback:', error);

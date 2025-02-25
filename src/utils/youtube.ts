@@ -8,7 +8,23 @@ export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle:
       .functions.invoke('youtube-auth');
 
     if (authError || !authData?.accessToken) {
-      throw new Error('Failed to get YouTube authentication token');
+      // Try using session storage token as fallback
+      const refreshToken = sessionStorage.getItem('youtube_refresh_token');
+      if (!refreshToken) {
+        throw new Error('Failed to get YouTube authentication token');
+      }
+
+      // Call auth function with refresh token
+      const { data: retryData, error: retryError } = await supabase
+        .functions.invoke('youtube-auth', {
+          body: { refreshToken }
+        });
+
+      if (retryError || !retryData?.accessToken) {
+        throw new Error('Failed to get YouTube authentication token');
+      }
+
+      authData = retryData;
     }
 
     const accessToken = authData.accessToken;
