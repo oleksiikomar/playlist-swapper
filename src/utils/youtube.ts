@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const createYouTubePlaylist = async (tracks: any[], spotifyPlaylistTitle: string) => {
   try {
     // Get access token from our edge function
-    const { data: authData, error: authError } = await supabase
+    let { data: authData, error: authError } = await supabase
       .functions.invoke('youtube-auth');
 
     if (authError || !authData?.accessToken) {
