@@ -28,6 +28,14 @@ export const initiateYouTubeAuth = async () => {
     const state = Math.random().toString(36).substring(7);
     sessionStorage.setItem('youtube_oauth_state', state);
 
+    // Store current playlist details
+    const currentTracks = sessionStorage.getItem('playlist_tracks');
+    const currentTitle = sessionStorage.getItem('playlist_title');
+    if (currentTracks && currentTitle) {
+      sessionStorage.setItem('pending_playlist_tracks', currentTracks);
+      sessionStorage.setItem('pending_playlist_title', currentTitle);
+    }
+
     // Construct OAuth URL
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${clientId}` +
@@ -46,7 +54,7 @@ export const initiateYouTubeAuth = async () => {
   }
 };
 
-export const handleYouTubeCallback = async (code: string) => {
+export const handleYouTubeCallback = async (code: string): Promise<string> => {
   try {
     const { data, error } = await supabase.functions.invoke('youtube-auth-callback', {
       body: { code }
@@ -54,22 +62,6 @@ export const handleYouTubeCallback = async (code: string) => {
 
     if (error || !data?.refreshToken) {
       throw new Error('Failed to complete authentication');
-    }
-
-    // Store refresh token temporarily in session storage as backup
-    sessionStorage.setItem('youtube_refresh_token', data.refreshToken);
-
-    try {
-      // Try to store in Supabase secrets
-      await supabase.functions.invoke('set-secret', {
-        body: { 
-          secretName: 'GOOGLE_REFRESH_TOKEN',
-          secretValue: data.refreshToken
-        }
-      });
-    } catch (error) {
-      console.warn('Failed to store refresh token in secrets, using session storage instead');
-      // Continue with session storage token
     }
 
     return data.refreshToken;

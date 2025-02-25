@@ -16,7 +16,23 @@ const PlaylistTracks = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [playlistTitle, setPlaylistTitle] = useState<string>('');
 
+  // Handle initial tracks loading
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    
+    // If we're in OAuth callback, try to get tracks from session storage
+    if (code) {
+      const pendingTracks = sessionStorage.getItem('pending_playlist_tracks');
+      const pendingTitle = sessionStorage.getItem('pending_playlist_title');
+      if (pendingTracks && pendingTitle) {
+        setTracks(JSON.parse(pendingTracks));
+        setPlaylistTitle(pendingTitle);
+        return;
+      }
+    }
+
+    // Normal tracks loading
     if (location.state?.tracks) {
       setTracks(location.state.tracks);
       setPlaylistTitle(location.state.playlistTitle || 'Spotify Playlist');
@@ -32,14 +48,15 @@ const PlaylistTracks = () => {
         navigate('/');
       }
     }
-  }, [location.state, navigate]);
+  }, [location.state, location.search, navigate]);
 
+  // Handle OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     const state = params.get('state');
     
-    if (code && state) {
+    if (code && state && !isAuthenticating) {
       const storedState = sessionStorage.getItem('youtube_oauth_state');
       if (state !== storedState) {
         toast({
@@ -53,29 +70,17 @@ const PlaylistTracks = () => {
       setIsAuthenticating(true);
       handleYouTubeCallback(code)
         .then(async (refreshToken) => {
-          const { error } = await supabase.functions.invoke('set-secret', {
-            body: { 
-              secretName: 'GOOGLE_REFRESH_TOKEN',
-              secretValue: refreshToken
-            }
-          });
+          // Store the refresh token
+          sessionStorage.setItem('youtube_refresh_token', refreshToken);
 
-          if (error) {
-            throw error;
-          }
-
-          toast({
-            title: "Success",
-            description: "YouTube authentication completed!",
-          });
-
+          // Clear OAuth state
           sessionStorage.removeItem('youtube_oauth_state');
           
           // Clear the URL parameters
           window.history.replaceState({}, document.title, "/playlist-tracks");
           
           // Proceed with playlist creation
-          await handleCreateYouTubePlaylist();
+          await handleCreateYouTubePlaylist(refreshToken);
         })
         .catch((error) => {
           console.error('Error handling callback:', error);
@@ -87,11 +92,14 @@ const PlaylistTracks = () => {
         })
         .finally(() => {
           setIsAuthenticating(false);
+          // Clean up pending playlist data
+          sessionStorage.removeItem('pending_playlist_tracks');
+          sessionStorage.removeItem('pending_playlist_title');
         });
     }
-  }, [location.search]);
+  }, [location.search, toast, isAuthenticating]);
 
-  const handleCreateYouTubePlaylist = async () => {
+  const handleCreateYouTubePlaylist = async (refreshToken?: string) => {
     if (isAuthenticating || isCreating) {
       return;
     }
@@ -103,18 +111,22 @@ const PlaylistTracks = () => {
         description: "Please wait while we create your YouTube playlist...",
       });
 
-      const playlistId = await createYouTubePlaylist(tracks, playlistTitle);
+      const playlistId = await createYouTubePlaylist(tracks, playlistTitle, refreshToken);
       
       toast({
         title: "Success!",
         description: "YouTube playlist has been created successfully.",
       });
 
+      // Clear stored data
       sessionStorage.removeItem('playlist_tracks');
       sessionStorage.removeItem('playlist_title');
+      sessionStorage.removeItem('youtube_refresh_token');
       
+      // Open the created playlist in a new tab
       window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
       
+      // Navigate back to home
       navigate('/', { replace: true });
     } catch (error: any) {
       console.error('Error creating playlist:', error);
@@ -152,7 +164,7 @@ const PlaylistTracks = () => {
               ← Back
             </Button>
             <Button
-              onClick={handleCreateYouTubePlaylist}
+              onClick={() => handleCreateYouTubePlaylist()}
               className="bg-youtube hover:bg-youtube/90 text-white"
               disabled={isCreating || isAuthenticating}
             >
