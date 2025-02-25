@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -12,6 +13,7 @@ const PlaylistTracks = () => {
   const { toast } = useToast();
   const [tracks, setTracks] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [playlistTitle, setPlaylistTitle] = useState<string>('');
 
   useEffect(() => {
@@ -48,6 +50,7 @@ const PlaylistTracks = () => {
         return;
       }
 
+      setIsAuthenticating(true);
       handleYouTubeCallback(code)
         .then(async (refreshToken) => {
           const { error } = await supabase.functions.invoke('set-secret', {
@@ -68,8 +71,10 @@ const PlaylistTracks = () => {
 
           sessionStorage.removeItem('youtube_oauth_state');
           
+          // Clear the URL parameters
           window.history.replaceState({}, document.title, "/playlist-tracks");
           
+          // Proceed with playlist creation
           await handleCreateYouTubePlaylist();
         })
         .catch((error) => {
@@ -79,11 +84,18 @@ const PlaylistTracks = () => {
             description: "Failed to complete YouTube authentication",
             variant: "destructive",
           });
+        })
+        .finally(() => {
+          setIsAuthenticating(false);
         });
     }
   }, [location.search]);
 
   const handleCreateYouTubePlaylist = async () => {
+    if (isAuthenticating || isCreating) {
+      return;
+    }
+
     setIsCreating(true);
     try {
       toast({
@@ -107,7 +119,8 @@ const PlaylistTracks = () => {
     } catch (error: any) {
       console.error('Error creating playlist:', error);
       
-      if (error.message.includes('Failed to get YouTube authentication token')) {
+      if (error.message.includes('Failed to get YouTube authentication token') && !isAuthenticating) {
+        setIsCreating(false);
         await initiateYouTubeAuth();
         return;
       }
@@ -141,9 +154,9 @@ const PlaylistTracks = () => {
             <Button
               onClick={handleCreateYouTubePlaylist}
               className="bg-youtube hover:bg-youtube/90 text-white"
-              disabled={isCreating}
+              disabled={isCreating || isAuthenticating}
             >
-              {isCreating ? "Creating Playlist..." : "Create YouTube Playlist"}
+              {isCreating || isAuthenticating ? "Processing..." : "Create YouTube Playlist"}
             </Button>
           </div>
 
