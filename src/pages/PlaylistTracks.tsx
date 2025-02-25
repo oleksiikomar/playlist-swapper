@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createYouTubePlaylist } from "@/utils/youtube";
 import { initiateYouTubeAuth, handleYouTubeCallback } from "@/utils/youtube-auth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const PlaylistTracks = () => {
   const location = useLocation();
@@ -14,7 +14,6 @@ const PlaylistTracks = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [playlistTitle, setPlaylistTitle] = useState<string>('');
 
-  // Initialize tracks and playlist title from location state or sessionStorage
   useEffect(() => {
     if (location.state?.tracks) {
       setTracks(location.state.tracks);
@@ -33,7 +32,6 @@ const PlaylistTracks = () => {
     }
   }, [location.state, navigate]);
 
-  // Handle OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
@@ -52,7 +50,6 @@ const PlaylistTracks = () => {
 
       handleYouTubeCallback(code)
         .then(async (refreshToken) => {
-          // Save refresh token to Supabase secrets
           const { error } = await supabase.functions.invoke('set-secret', {
             body: { 
               secretName: 'GOOGLE_REFRESH_TOKEN',
@@ -69,13 +66,10 @@ const PlaylistTracks = () => {
             description: "YouTube authentication completed!",
           });
 
-          // Clean up
           sessionStorage.removeItem('youtube_oauth_state');
           
-          // Remove code from URL
           window.history.replaceState({}, document.title, "/playlist-tracks");
           
-          // Try creating playlist now that we're authenticated
           await handleCreateYouTubePlaylist();
         })
         .catch((error) => {
@@ -104,20 +98,16 @@ const PlaylistTracks = () => {
         description: "YouTube playlist has been created successfully.",
       });
 
-      // Clean up
       sessionStorage.removeItem('playlist_tracks');
       sessionStorage.removeItem('playlist_title');
       
-      // Open the created playlist in a new tab
       window.open(`https://www.youtube.com/playlist?list=${playlistId}`, '_blank');
       
-      // Navigate back to home
       navigate('/', { replace: true });
     } catch (error: any) {
       console.error('Error creating playlist:', error);
       
       if (error.message.includes('Failed to get YouTube authentication token')) {
-        // Start OAuth flow
         await initiateYouTubeAuth();
         return;
       }
